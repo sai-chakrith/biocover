@@ -1,157 +1,85 @@
-# SahyOpt — Western Ghats Amphibian Reserve Site Selection
+# SahyOpt — Western Ghats amphibian site selection
 
-An Operations Research project implementing **Set Covering (SCLP)** and **Maximal Coverage Location Problems (MCLP)** for systematic conservation planning in the Western Ghats biodiversity hotspot, using real GBIF occurrence data and IUCN Red List threat categories.
+SahyOpt locates grid cells that represent amphibian species recorded in GBIF. It is a simple Operations Research project: clean occurrences, solve a coverage model, and inspect the chosen locations on a map.
 
----
+## Start on Windows
 
-## 📌 Abstract
+Double-click **run_project.bat**. On the first run it installs Python and web dependencies; internet access is needed. It starts two local services and checks them before reporting success. Open **http://127.0.0.1:3000/map**.
 
-The Western Ghats of India is a global biodiversity hotspot home to over 220 amphibian species, many of which are endangered and micro-endemic. **SahyOpt** formulates and solves integer linear programming (ILP) models to identify optimal reserve networks under spatial coverage constraints and limited conservation budgets.
+Prerequisites: Python 3.12+ (or uv) and Node.js 20.9+ with npm or pnpm. PostgreSQL is not required. The launcher also recognizes the bundled Codex runtimes on this computer. Errors are recorded in `logs/`.
 
-The codebase integrates:
-- A Python data cleaning & spatial gridding pipeline (~0.1° grid cells / ~11 km resolution)
-- An automated IUCN Red List & GBIF threat category and weighting resolver
-- A FastAPI microservice using PuLP (CBC Solver) for exact ILP optimization
-- A PostgreSQL database managed via Prisma ORM
-- An interactive Next.js dashboard with GIS map visualization (Leaflet) and sensitivity analysis tools
+On the map:
 
----
+1. Choose Set Covering to represent every species with the fewest cells.
+2. Or choose MCLP, set the maximum number of cells, and optionally enable IUCN weights.
+3. Click Locate sites. Green cells are selected; click them for species and coordinates.
+4. Download the selected site coordinates as CSV.
 
-## 🧮 Mathematical Formulations
+The Overview shows data counts. Optimize lists coverage and unrepresented species. Sensitivity compares record thresholds and equal/IUCN weighting using live results.
 
-### 1. Set Covering Location Problem (SCLP)
-Finds the minimum number of reserve sites required to guarantee that **every species** is represented in at least one selected reserve.
+## Manual setup
 
-**Sets & Parameters:**
-- $I$: Set of candidate grid cells ($i \in I, |I| = 759$)
-- $J$: Set of amphibian species ($j \in J, |J| = 220$)
-- $a_{ij} \in \{0, 1\}$: Binary presence matrix ($1$ if species $j$ occurs in cell $i$, $0$ otherwise)
-
-**Decision Variable:**
-- $x_i \in \{0, 1\}$: $1$ if candidate cell $i$ is selected as a reserve, $0$ otherwise
-
-$$\min \sum_{i \in I} x_i$$
-
-$$\text{subject to } \sum_{i \in I} a_{ij} x_i \ge 1 \quad \forall j \in J$$
-
-$$x_i \in \{0, 1\} \quad \forall i \in I$$
-
----
-
-### 2. Maximal Coverage Location Problem (MCLP)
-Given a fixed budget $K$ (maximum allowable reserves), maximizes total weighted species coverage.
-
-**Additional Parameters & Variables:**
-- $K$: Budget limit on the maximum number of reserves
-- $w_j$: Conservation weight for species $j$ based on IUCN Red List status:
-  - Critically Endangered (CR): $5$
-  - Endangered (EN): $4$
-  - Vulnerable (VU): $3$
-  - Near Threatened (NT): $2$
-  - Least Concern (LC) / Data Deficient (DD): $1$
-- $y_j \in \{0, 1\}$: $1$ if species $j$ is covered by at least one selected reserve, $0$ otherwise
-
-$$\max \sum_{j \in J} w_j y_j$$
-
-$$\text{subject to } y_j \le \sum_{i \in I} a_{ij} x_i \quad \forall j \in J$$
-
-$$\sum_{i \in I} x_i \le K$$
-
-$$x_i \in \{0, 1\} \quad \forall i \in I, \quad y_j \in \{0, 1\} \quad \forall j \in J$$
-
----
-
-## 🚀 Setup & Execution Guide
-
-### Prerequisites
-- Python 3.10+
-- Node.js 18+ & npm
-- PostgreSQL 15+
-
----
-
-### 1. Data Cleaning & Gridding Pipeline
-Raw GBIF occurrences (`occurrence.txt`) are cleaned for spatial uncertainty ($<10\text{ km}$), filtered to the Western Ghats bounding box ($8^\circ\text{--}21^\circ\text{N}, 73^\circ\text{--}78^\circ\text{E}$), and discretized into $0.1^\circ \times 0.1^\circ$ grid cells.
-
-```bash
-python clean_and_grid.py
-```
-*Outputs:* `cleaned_occurrences.csv` (9,226 records), `grid_cells.csv` (759 cells), `coverage_matrix.csv` (759 × 220 matrix).
-
----
-
-### 2. Generate IUCN Threat Weights
-Fetch real IUCN Red List status and compute species weights ($w_j$). Supports `IUCN_API_KEY` or falls back to GBIF's open IUCN API.
-
-```bash
-python solver/fetch_iucn_weights.py
-```
-*Outputs:* `weights.csv` (220 species categorized across CR, EN, VU, NT, LC, DD).
-
----
-
-### 3. Run Optimization Tests
-Verify solver formulations and data loading.
-
-```bash
-pytest solver/ -v
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -r solver/requirements.txt
+.venv\Scripts\python solver/server.py
 ```
 
----
+In a second terminal:
 
-### 4. Start Solver Microservice
-Run the FastAPI optimization service.
-
-```bash
-python solver/server.py
-```
-*Service URL:* `http://localhost:8000` (Endpoints: `/health`, `/solve`, `/coverage-curve`, `/sensitivity`)
-
----
-
-### 5. Database Setup & Seeding
-
-1. Create `web/.env`:
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/sahyopt?schema=public"
-SOLVER_URL="http://localhost:8000"
-```
-
-2. Deploy database migrations and run seed script:
-```bash
+```powershell
 cd web
-npx prisma migrate deploy
-npx prisma db seed
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
----
+`npm install` and `npm run dev` also work if pnpm is unavailable. The optional `web/.env.local` setting is `SOLVER_URL=http://127.0.0.1:8000`.
 
-### 6. Run Next.js Dashboard
+## Models
 
-```bash
+Let x_i select a cell, a_ij indicate an occurrence of species j in cell i, and y_j indicate representation.
+
+- **SCLP:** minimize sum(x_i), subject to sum(a_ij x_i) >= 1 for every species.
+- **MCLP:** maximize sum(w_j y_j), subject to y_j <= sum(a_ij x_i) and sum(x_i) <= K.
+- Variables are binary. PuLP 3.3.0 uses the bundled CBC solver. Non-optimal solves are rejected instead of displayed as valid results. MCLP optimizes the coverage score first and applies a rank preference among optimal scores.
+- Supplied weights: CR=5, EN=4, VU=3, NT=2, LC/DD/unknown=1; the supplied snapshot also has EX=6. These are a simple project scoring choice, not monetary values.
+
+The corrected data has **759 cells, 220 species and 9,226 records**. Its full-coverage optimum is **56 cells**. The original 57 changed after correcting 41 cell-boundary assignments. See [DATA_NOTES.md](DATA_NOTES.md) for the exact reason and assumptions.
+
+## Rebuild and check
+
+The supplied checkout includes the raw `occurrence.txt`. The generated CSVs are tracked so the app works without downloading data again.
+
+```powershell
+.venv\Scripts\python clean_and_grid.py
+.venv\Scripts\python generate_results_summary.py
+.venv\Scripts\python -m pytest solver -v
 cd web
-npm run dev
+pnpm lint
+pnpm typecheck
+pnpm build
 ```
-Open `http://localhost:3000` in your browser.
 
----
+`solver/fetch_iucn_weights.py` optionally refreshes weights; a failed lookup is NE. Restart the solver after changing data or weights. Its in-memory cache is tied to the loaded snapshot, and all responses include the dataset fingerprint.
+
+The project locates recorded-species representation sites. It does not claim to establish current occupancy or real-world conservation outcomes. Keep the historical-data assumptions in the presentation.
 
 ## 📊 Results Summary
 
 1. **Minimum Reserve Network (Set Covering)**:
-   - Exactly **57 grid cells** are required to achieve 100% representation (covering all 220 amphibian species at least once).
+   - Exactly **56 grid cells** are required to achieve 100% representation (covering all 220 amphibian species at least once).
 
 2. **Coverage vs. Budget Curve (MCLP)**:
    - Budget = 1 cell $\rightarrow$ 19.1% species coverage (42 species)
-   - Budget = 10 cells $\rightarrow$ 65.9% species coverage (145 species)
-   - Budget = 20 cells $\rightarrow$ 80.0% species coverage (176 species)
-   - Budget = 40 cells $\rightarrow$ 92.3% species coverage (203 species)
-   - Budget = 55 cells $\rightarrow$ 99.1% species coverage (218 species)
-   - Budget = 57 cells $\rightarrow$ 100.0% species coverage (220 species)
+   - Budget = 10 cells $\rightarrow$ 65.5% species coverage (144 species)
+   - Budget = 20 cells $\rightarrow$ 80.5% species coverage (177 species)
+   - Budget = 40 cells $\rightarrow$ 92.7% species coverage (204 species)
+   - Budget = 55 cells $\rightarrow$ 99.5% species coverage (219 species)
+   - Budget = 56 cells $\rightarrow$ 100.0% species coverage (220 species)
 
 3. **Equal-Weighted vs. IUCN-Weighted Tradeoff**:
-   - At a budget of 20 reserves, incorporating IUCN Red List weights ($w_j$) changes **5 out of 20 selected cells (25.0% network spatial shift)**.
-   - **Equal-weighted model**: achieves 80.0% coverage (176 species).
-   - **IUCN-weighted model**: achieves 78.2% coverage (172 species).
-   - The weighted model trades a small amount of raw coverage for prioritizing threatened species, ensuring critical habitats are prioritized for endangered endemics such as *Nasikabatrachus sahyadrensis* (Purple Frog) and *Raorchestes resplendens* (Resplendent Bush Frog) over widespread species.
-   - Both models now use a deterministic tie-breaking term (see `optimize.py`), so this comparison reproduces identically across platforms and repeated runs.
+   - At a budget of 20 reserves, incorporating IUCN Red List weights ($w_j$) changes **6 out of 20 selected cells (30.0% network spatial shift)**.
+   - **Equal-weighted model**: achieves 80.5% coverage (177 species).
+   - **IUCN-weighted model**: achieves 77.3% coverage (170 species).
+   - IUCN-weighted score: 401; equal solution evaluated with the same weights: 386.
+   - Rank-based preferences can still tie; exact selected cells may differ between solver builds.

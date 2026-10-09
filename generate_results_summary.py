@@ -20,7 +20,7 @@ def main():
     sclp_res = optimize.solve_set_covering(cells, species, a)
     min_reserves = sclp_res['totalSelected']
 
-    budgets = [1, 10, 20, 40, 55, 57]
+    budgets = sorted(set([1, 10, 20, 40, max(1, min_reserves - 1), min_reserves]))
     mclp_results = []
     for b in budgets:
         res = optimize.solve_mclp(cells, species, a, w_equal, budget=b)
@@ -63,8 +63,8 @@ def main():
     markdown.append(f"   - At a budget of 20 reserves, incorporating IUCN Red List weights ($w_j$) changes **{diff_count} out of 20 selected cells ({pct_diff:.1f}% network spatial shift)**.")
     markdown.append(f"   - **Equal-weighted model**: achieves {eq_pct:.1f}% coverage ({eq_sp} species).")
     markdown.append(f"   - **IUCN-weighted model**: achieves {wt_pct:.1f}% coverage ({wt_sp} species).")
-    markdown.append("   - The weighted model trades a small amount of raw coverage for prioritizing threatened species, ensuring critical habitats are prioritized for endangered endemics such as *Nasikabatrachus sahyadrensis* (Purple Frog) and *Raorchestes resplendens* (Resplendent Bush Frog) over widespread species.")
-    markdown.append("   - Both models now use a deterministic tie-breaking term (see `optimize.py`), so this comparison reproduces identically across platforms and repeated runs.")
+    markdown.append(f"   - IUCN-weighted score: {res_wt['weightedScore']:.0f}; equal solution evaluated with the same weights: {sum(w_iucn[s] for s in res_eq['coveredSpecies']):.0f}.")
+    markdown.append("   - Rank-based preferences can still tie; exact selected cells may differ between solver builds.")
 
     summary_text = "\n".join(markdown) + "\n"
 

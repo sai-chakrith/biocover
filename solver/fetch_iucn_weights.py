@@ -42,7 +42,7 @@ def fetch_species_weight_iucn(sp, session):
         if res.status_code == 200:
             data = res.json()
             if data and 'result' in data and len(data['result']) > 0:
-                cat = data['result'][0].get('category', 'LC')
+                cat = data['result'][0].get('category', 'NE')
                 weight = get_weight_from_category(cat)
                 return {'species': sp, 'iucn_category': cat, 'weight': weight}
     except Exception:
@@ -61,7 +61,8 @@ def fetch_species_weight_gbif(sp, session):
                 return {'species': sp, 'iucn_category': cat_code, 'weight': weight}
     except Exception:
         pass
-    return {'species': sp, 'iucn_category': 'LC', 'weight': 1}
+    # A lookup failure is not a Least Concern assessment.
+    return {'species': sp, 'iucn_category': 'NE', 'weight': 1}
 
 def fetch_single_species(sp, session):
     result = fetch_species_weight_iucn(sp, session)
@@ -79,7 +80,7 @@ def main():
 
     print(f"Fetching IUCN weights for {len(species_list)} species...", flush=True)
     session = requests.Session()
-    
+
     with ThreadPoolExecutor(max_workers=25) as executor:
         futures = [executor.submit(fetch_single_species, sp, session) for sp in species_list]
         results = [f.result() for f in futures]

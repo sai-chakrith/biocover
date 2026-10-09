@@ -10,16 +10,17 @@ export default function BudgetSlider({ value, onChange }: BudgetSliderProps) {
   return (
     <div className="slider-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <label className="stat-label">Budget (Max Reserves)</label>
+        <label className="stat-label" htmlFor="budget-slider">Budget (maximum cells)</label>
         <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--accent-primary)', fontFamily: 'var(--font-outfit)' }}>
           {value}
         </span>
       </div>
-      <input 
-        type="range" 
-        min="1" 
-        max="100" 
-        value={value} 
+      <input
+        id="budget-slider"
+        type="range"
+        min="1"
+        max="100"
+        value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
         className="slider"
       />

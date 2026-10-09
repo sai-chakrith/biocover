@@ -1,10 +1,7 @@
 import type { Metadata } from 'next';
-import { Inter, Outfit } from 'next/font/google';
 import './globals.css';
 import Link from 'next/link';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
 
 export const metadata: Metadata = {
   title: 'SahyOpt - Western Ghats Amphibian Reserve Selection',
@@ -18,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${outfit.variable}`} style={{ display: 'flex', minHeight: '100vh' }}>
+      <body style={{ display: 'flex', minHeight: '100vh' }}>
         <aside style={{ width: '250px', backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border-glass)', padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '3rem' }}>
             <div style={{ color: 'var(--accent-primary)' }}>
@@ -26,8 +23,8 @@ export default function RootLayout({
             </div>
             <h1 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-primary)' }}>SahyOpt</h1>
           </div>
-          
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+
+          <nav aria-label="Main navigation" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', transition: 'background var(--transition-fast)' }} className="sidebar-link">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
               Dashboard

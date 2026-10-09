@@ -10,6 +10,7 @@ Outputs three files you'll feed into the optimization models next:
 """
 
 import pandas as pd
+import numpy as np
 
 # ---------- CONFIG (tune these) ----------
 INPUT_FILE = "occurrence.txt"        # raw GBIF Simple download
@@ -29,7 +30,8 @@ print(f"Raw species: {df['species'].nunique()}")
 # ---------- CLEAN ----------
 cols_needed = ["species", "decimalLatitude", "decimalLongitude",
                "coordinateUncertaintyInMeters", "basisOfRecord",
-               "eventDate", "occurrenceStatus"]
+               "eventDate", "occurrenceStatus", "gbifID", "datasetKey",
+               "taxonKey", "speciesKey", "license", "issue"]
 df = df[[c for c in cols_needed if c in df.columns]].copy()
 
 df = df.dropna(subset=["species", "decimalLatitude", "decimalLongitude"])
@@ -47,14 +49,17 @@ if "coordinateUncertaintyInMeters" in df.columns:
 df = df[df["decimalLatitude"].between(LAT_MIN, LAT_MAX) &
         df["decimalLongitude"].between(LON_MIN, LON_MAX)]
 
-df = df.drop_duplicates(subset=["species", "decimalLatitude", "decimalLongitude", "eventDate"])
+df = df.drop_duplicates(subset=[c for c in ["species", "decimalLatitude", "decimalLongitude", "eventDate"] if c in df.columns])
+if df.empty:
+    raise ValueError('No usable occurrence records remain after filtering')
 
 print(f"Cleaned records: {len(df)}")
 print(f"Cleaned species: {df['species'].nunique()}")
 
 # ---------- BUILD GRID ----------
-df["cell_lat"] = ((df["decimalLatitude"] // GRID_SIZE_DEG) * GRID_SIZE_DEG).round(4)
-df["cell_lon"] = ((df["decimalLongitude"] // GRID_SIZE_DEG) * GRID_SIZE_DEG).round(4)
+# Avoid floating floor-division assigning exact boundaries to the previous cell.
+df["cell_lat"] = (np.floor(df["decimalLatitude"] / GRID_SIZE_DEG + 1e-9) * GRID_SIZE_DEG).round(4)
+df["cell_lon"] = (np.floor(df["decimalLongitude"] / GRID_SIZE_DEG + 1e-9) * GRID_SIZE_DEG).round(4)
 df["cell_id"] = df["cell_lat"].astype(str) + "_" + df["cell_lon"].astype(str)
 
 print(f"Occupied grid cells: {df['cell_id'].nunique()}")
@@ -69,7 +74,7 @@ coverage = (coverage > 0).astype(int)
 
 print(f"Coverage matrix shape (cells x species): {coverage.shape}")
 print(f"Species with zero cells after noise filter: "
-      f"{(coverage.sum(axis=0) == 0).sum()} — consider lowering MIN_OCCURRENCES_PER_CELL if this is high")
+      f"{len(set(df['species']) - set(coverage.columns))} — consider lowering MIN_OCCURRENCES_PER_CELL if this is high")
 
 # ---------- SAVE ----------
 grid_cells = df[["cell_id", "cell_lat", "cell_lon"]].drop_duplicates().reset_index(drop=True)

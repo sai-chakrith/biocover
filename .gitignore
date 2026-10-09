@@ -25,3 +25,5 @@ Thumbs.db
 # Data (keep CSVs tracked, but not raw GBIF dump)
 occurrence.txt
 local_db/
+logs/
+*.tsbuildinfo
