@@ -26,7 +26,7 @@ export default function Dashboard() {
   return <div className="page-transition">
     <h1>Western Ghats amphibian sites</h1>
     <p style={{ margin: '1rem 0', color: 'var(--text-secondary)' }}>Find a small set of locations that represents the most recorded species.</p>
-    <Link href="/map" className="btn-primary" style={{ display: 'inline-block', marginBottom: '2rem' }}>Locate conservation sites</Link>
+    <Link href="/optimize" className="btn-primary" style={{ display: 'inline-block', marginBottom: '2rem' }}>Select conservation sites</Link>
     {error && <p role="alert" style={{ color: 'var(--accent-red)' }}>{error}</p>}
     {!data && !error && <p role="status">Loading project data…</p>}
     {data && <>

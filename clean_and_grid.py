@@ -1,5 +1,5 @@
 """
-SahyOpt — GBIF Occurrence Cleaning & Grid Construction
+BioCover — GBIF Occurrence Cleaning & Grid Construction
 Western Ghats Amphibian Reserve Site Selection
 
 Run this on the occurrence.txt file from your GBIF "Simple" download.

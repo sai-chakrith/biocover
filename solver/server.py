@@ -7,8 +7,9 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 import optimize
+import benchmark
 
-app = FastAPI(title='SahyOpt Solver')
+app = FastAPI(title='BioCover Solver')
 DATA = Path(optimize.DATA_DIR)
 cells, species, a, weights_equal = optimize.load_data()
 try:
@@ -110,6 +111,19 @@ def sensitivity():
         return sensitivity_results()
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+@lru_cache(maxsize=1)
+def benchmark_results():
+    return {**benchmark.compare(cells, species, a), 'dataVersion': version}
+
+
+@app.get('/benchmark')
+def get_benchmark():
+    try:
+        return benchmark_results()
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
 
 if __name__ == '__main__':
     import uvicorn

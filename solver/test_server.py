@@ -31,3 +31,21 @@ def test_sensitivity_reports_excluded_species():
     assert [r['speciesCount'] for r in rows] == [220, 162, 125, 85]
     for row in rows:
         assert row['speciesCount'] + len(row['excludedSpecies']) == 220
+
+
+def test_benchmark_and_compulsory_cells_use_same_dataset():
+    response = client.get('/benchmark')
+    assert response.status_code == 200
+    result = response.json()
+    assert result['targetSpecies'] == 220 and result['candidateCells'] == 759
+    assert [row['cellCount'] for row in result['methods']] == [57, 56]
+    assert result['cellsSaved'] == 1
+    assert all(row['speciesCovered'] == 220 for row in result['methods'])
+    assert len(result['compulsoryCells']) == 33
+    assert result['singleCellSpecies'] == 42
+    exact = set(result['methods'][1]['selectedCells'])
+    for row in result['compulsoryCells']:
+        assert row['cellId'] in exact
+        for sp in row['species']:
+            assert [c for c in server.cells if server.a[c][sp]] == [row['cellId']]
+    assert result['dataVersion'] == server.version

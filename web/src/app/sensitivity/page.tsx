@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { CurvePoint } from '@/lib/types';
+import BenchmarkPanel from '@/components/BenchmarkPanel';
 
 interface SensitivityRow { threshold: number; minReserves: number; speciesCount: number; totalSpecies: number; excludedSpecies: string[] }
 interface Comparison { budget: number; equal: number; iucn: number }
@@ -30,7 +31,8 @@ export default function SensitivityPage() {
   }, []);
   return <div className="page-transition">
     <h1>Sensitivity analysis</h1>
-    <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Check how record requirements and threat weights change the selected network.</p>
+    <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Compare selection methods, understand compulsory cells, and check how record requirements and threat weights change the network.</p>
+    <BenchmarkPanel />
     {loading && <p role="status">Computing coverage curves…</p>}
     {error && <p role="alert" style={{ color: 'var(--accent-red)' }}>{error}</p>}
     {data.length > 0 && <section className="glass-card" style={{ marginBottom: '1.5rem' }}>

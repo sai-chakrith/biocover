@@ -1,4 +1,4 @@
-# SahyOpt dashboard
+# BioCover dashboard
 
 Next.js and Leaflet interface for the CSV-backed Python solver. No database setup is needed.
 

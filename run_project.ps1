@@ -75,5 +75,5 @@ for ($attempt = 0; $attempt -lt 60; $attempt++) {
     Start-Sleep -Seconds 1
 }
 if (-not (Is-Ready 'http://127.0.0.1:3000/api/data/status')) { throw 'Dashboard did not start. Check logs\web-error.log.' }
-Write-Host 'SahyOpt is ready: http://127.0.0.1:3000/map'
+Write-Host 'BioCover is ready: http://127.0.0.1:3000/optimize'
 Write-Host 'Use the map to locate sites and download their coordinates. Logs are in the logs folder.'
