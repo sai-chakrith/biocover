@@ -8,6 +8,7 @@ export interface CellDetail {
   species: { name: string; iucnCategory: string }[];
 }
 export interface OptResult {
+  budget?: number;
   model: string;
   status: string;
   totalSelected: number;

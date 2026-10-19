@@ -1,7 +1,12 @@
-import OptimizeForm from '@/components/OptimizeForm';
-import { parseSelection, type SelectionParams } from '@/lib/selection';
+import MapExplorer from '@/components/MapExplorer';
 
-export default async function OptimizePage({ searchParams }: { searchParams: Promise<SelectionParams> }) {
-  const selection = parseSelection(await searchParams) || { model: 'set_covering', budget: 20, weighted: false };
-  return <OptimizeForm key={JSON.stringify(selection)} initialSelection={selection}/>;
+export default async function OptimizePage({ searchParams }: {
+  searchParams: Promise<{ model?: string; budget?: string; weighted?: string }>;
+}) {
+  const params = await searchParams;
+  const model = params.model === 'mclp' ? 'mclp' : 'set_covering';
+  const requested = Number(params.budget);
+  const budget = Number.isInteger(requested) && requested >= 1 && requested <= 100 ? requested : 20;
+  const weighted = params.weighted === 'true';
+  return <MapExplorer key={`${model}-${budget}-${weighted}`} initialModel={model} initialBudget={budget} initialWeighted={weighted} />;
 }

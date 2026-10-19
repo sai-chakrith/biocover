@@ -1,0 +1,11 @@
+.git
+.venv
+venv
+.uv-cache
+logs
+web
+occurrence.txt
+**/__pycache__
+**/*.pyc
+.env*
+**/.env*

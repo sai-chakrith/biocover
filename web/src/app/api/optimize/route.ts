@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { solverResponse } from '@/lib/solver';
 
+export const maxDuration = 240;
+
 export async function POST(request: NextRequest) {
   let body;
   try { body = await request.json(); }

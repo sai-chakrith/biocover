@@ -8,14 +8,14 @@ Double-click **run_project.bat**. On the first run it installs Python and web de
 
 Prerequisites: Python 3.12+ (or uv) and Node.js 20.9+ with npm or pnpm. PostgreSQL is not required. The launcher also recognizes the bundled Codex runtimes on this computer. Errors are recorded in `logs/`.
 
-In Optimize:
+On Optimize:
 
 1. Choose Set Covering to represent every species with the fewest cells.
 2. Or choose MCLP, set the maximum number of cells, and optionally enable IUCN weights.
-3. Click Run optimization to review coverage and unrepresented species.
-4. Click View selected sites on map to inspect green dots, click cells for species, and download coordinates as CSV. Map reopens the last selection in the current browser tab; its Change settings link returns to Optimize with the same settings.
+3. Click Locate sites. Green cells are selected; click them for species and coordinates.
+4. Download the selected site coordinates as CSV.
 
-The Overview shows data counts. Optimize lists coverage and unrepresented species. Sensitivity compares record thresholds and equal/IUCN weighting using live results.
+The Dashboard shows data counts. Optimize combines site selection, the map, coverage and unrepresented species. Sensitivity compares record thresholds and equal/IUCN weighting using live results.
 
 Sensitivity also compares a richest-uncovered-species greedy rule with exact Set Covering on the same equal-cost dataset. It reports cells selected, species represented and measured runtime, and lists cells made compulsory by species recorded in only one candidate cell. These explanations concern recorded full representation; they do not establish biological endemism or mandatory choices for every MCLP budget. Runtime values are single computations cached until solver restart, not averaged performance claims.
 

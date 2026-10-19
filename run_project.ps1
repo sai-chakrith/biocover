@@ -1,6 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
+Write-Host "Project: $projectRoot"
+Write-Host 'Checking Python and Node.js...'
 
 function Find-Tool($names, $fallback) {
     foreach ($name in $names) {
@@ -20,19 +22,28 @@ $npmTool = Find-Tool @('npm.cmd') $null
 $pnpmTool = Find-Tool @('pnpm.cmd') (Join-Path $runtimeRoot 'bin\fallback\pnpm.cmd')
 $pythonTool = Join-Path $projectRoot '.venv\Scripts\python.exe'
 $bootstrapPython = Find-Tool @('python', 'python3') (Join-Path $runtimeRoot 'python\python.exe')
+if (-not $env:UV_CACHE_DIR) { $env:UV_CACHE_DIR = Join-Path $projectRoot 'logs\uv-cache' }
 
 if (-not (Test-Path -LiteralPath $pythonTool)) {
-    Write-Host 'Setting up Python dependencies (first run only)...'
+    Write-Host 'Creating Python environment...'
     if ($uvTool) {
         if ($bootstrapPython) { & $uvTool venv --python $bootstrapPython .venv }
         else { & $uvTool venv --python 3.12 .venv }
         if ($LASTEXITCODE -ne 0) { throw 'Python environment setup failed.' }
+    } else {
+        if (-not $bootstrapPython) { throw 'Install Python 3.12+ or uv and rerun.' }
+        & $bootstrapPython -m venv .venv
+        if ($LASTEXITCODE -ne 0) { throw 'Python environment setup failed.' }
+    }
+}
+
+# An interrupted installation can leave a valid interpreter without dependencies.
+& $pythonTool -c "import importlib.util, sys; sys.exit(0 if all(importlib.util.find_spec(m) is not None for m in ['fastapi', 'uvicorn', 'pandas', 'pulp', 'requests', 'dotenv']) else 1)"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'Installing missing Python dependencies...'
+    if ($uvTool) {
         & $uvTool pip install --python $pythonTool -r solver\requirements.txt
     } else {
-        $systemPython = Find-Tool @('python', 'python3') $null
-        if (-not $systemPython) { throw 'Install Python 3.12+ or uv and rerun.' }
-        & $systemPython -m venv .venv
-        if ($LASTEXITCODE -ne 0) { throw 'Python environment setup failed.' }
         & $pythonTool -m pip install -r solver\requirements.txt
     }
     if ($LASTEXITCODE -ne 0) { throw 'Python dependency installation failed.' }
@@ -55,25 +66,35 @@ function Is-Ready($url) {
     catch { return $false }
 }
 
-if (-not (Is-Ready 'http://127.0.0.1:8000/health')) {
-    Start-Process -FilePath $pythonTool -ArgumentList '-B', 'solver/server.py' -WorkingDirectory $projectRoot -WindowStyle Hidden `
-        -RedirectStandardOutput (Join-Path $projectRoot 'logs\solver.log') -RedirectStandardError (Join-Path $projectRoot 'logs\solver-error.log') | Out-Null
+function Wait-Service($url, $serviceProcess, $attempts, $errorLog, $label) {
+    for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
+        if (Is-Ready $url) { return }
+        if ($serviceProcess -and $serviceProcess.HasExited) {
+            $details = Get-Content -LiteralPath $errorLog -Tail 20 -ErrorAction SilentlyContinue
+            throw "$label exited (code $($serviceProcess.ExitCode)).`n$($details -join [Environment]::NewLine)"
+        }
+        Start-Sleep -Seconds 1
+    }
+    throw "$label did not become ready. Check $errorLog"
 }
-for ($attempt = 0; $attempt -lt 30; $attempt++) {
-    if (Is-Ready 'http://127.0.0.1:8000/health') { break }
-    Start-Sleep -Seconds 1
-}
-if (-not (Is-Ready 'http://127.0.0.1:8000/health')) { throw 'Solver did not start. Check logs\solver-error.log.' }
 
-if (-not (Is-Ready 'http://127.0.0.1:3000/api/data/status')) {
-    Start-Process -FilePath $nodeTool -ArgumentList 'node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1' `
-        -WorkingDirectory (Join-Path $projectRoot 'web') -WindowStyle Hidden `
-        -RedirectStandardOutput (Join-Path $projectRoot 'logs\web.log') -RedirectStandardError (Join-Path $projectRoot 'logs\web-error.log') | Out-Null
+Write-Host 'Starting solver on http://127.0.0.1:8000...'
+$solverProcess = $null
+if (-not (Is-Ready 'http://127.0.0.1:8000/health')) {
+    $solverProcess = Start-Process -FilePath $pythonTool -ArgumentList '-u', '-B', 'solver/server.py' -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru `
+        -RedirectStandardOutput (Join-Path $projectRoot 'logs\solver.log') -RedirectStandardError (Join-Path $projectRoot 'logs\solver-error.log')
 }
-for ($attempt = 0; $attempt -lt 60; $attempt++) {
-    if (Is-Ready 'http://127.0.0.1:3000/api/data/status') { break }
-    Start-Sleep -Seconds 1
+Wait-Service 'http://127.0.0.1:8000/health' $solverProcess 30 (Join-Path $projectRoot 'logs\solver-error.log') 'Solver'
+
+Write-Host 'Starting dashboard on http://127.0.0.1:3000...'
+$webProcess = $null
+# Check the dashboard itself. Its data API also depends on the solver and can
+# fail while an existing dashboard is already listening on port 3000.
+if (-not (Is-Ready 'http://127.0.0.1:3000/optimize')) {
+    $webProcess = Start-Process -FilePath $nodeTool -ArgumentList 'node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', '3000' `
+        -WorkingDirectory (Join-Path $projectRoot 'web') -WindowStyle Hidden -PassThru `
+        -RedirectStandardOutput (Join-Path $projectRoot 'logs\web.log') -RedirectStandardError (Join-Path $projectRoot 'logs\web-error.log')
 }
-if (-not (Is-Ready 'http://127.0.0.1:3000/api/data/status')) { throw 'Dashboard did not start. Check logs\web-error.log.' }
+Wait-Service 'http://127.0.0.1:3000/optimize' $webProcess 60 (Join-Path $projectRoot 'logs\web-error.log') 'Dashboard'
 Write-Host 'BioCover is ready: http://127.0.0.1:3000/optimize'
 Write-Host 'Use the map to locate sites and download their coordinates. Logs are in the logs folder.'

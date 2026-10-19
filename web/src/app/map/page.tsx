@@ -1,9 +1,12 @@
-import MapExplorer from '@/components/MapExplorer';
-import { parseSelection, type SelectionParams } from '@/lib/selection';
+import { redirect } from 'next/navigation';
 
 export default async function MapPage({ searchParams }: {
-  searchParams: Promise<SelectionParams>;
+  searchParams: Promise<{ model?: string; budget?: string; weighted?: string }>;
 }) {
-  const selection = parseSelection(await searchParams);
-  return <MapExplorer key={JSON.stringify(selection)} initialSelection={selection} />;
+  const params = await searchParams;
+  const query = new URLSearchParams();
+  for (const key of ['model', 'budget', 'weighted'] as const) {
+    if (params[key] !== undefined) query.set(key, params[key]);
+  }
+  redirect(`/optimize${query.size ? `?${query}` : ''}`);
 }
