@@ -1,25 +1,54 @@
-# BioCover — Western Ghats amphibian site selection
+# BioCover
 
-BioCover locates grid cells that represent amphibian species recorded in GBIF. It is a simple Operations Research project: clean occurrences, solve a coverage model, and inspect the chosen locations on a map.
+BioCover is an Operations Research project that selects conservation sites for amphibians in the Western Ghats.
 
-## Start on Windows
+The idea is straightforward: when only a limited number of locations can be protected, which ones should we choose to represent the most species?
 
-Double-click **run_project.bat**. On the first run it installs Python and web dependencies; internet access is needed. It starts two local services and checks them before reporting success. Open **http://127.0.0.1:3000/optimize**.
+## What the project does
 
-Prerequisites: Python 3.12+ (or uv) and Node.js 20.9+ with npm or pnpm. PostgreSQL is not required. The launcher also recognizes the bundled Codex runtimes on this computer. Errors are recorded in `logs/`.
+BioCover uses GBIF occurrence records to identify which amphibian species have been recorded in each grid cell. It then solves two optimization models:
 
-On Optimize:
+- **Set Covering:** Find the smallest number of cells needed to represent every species at least once.
+- **Maximum Coverage (MCLP):** Represent as many species as possible within a budget of K cells. Optional IUCN weighting prioritizes threatened species.
 
-1. Choose Set Covering to represent every species with the fewest cells.
-2. Or choose MCLP, set the maximum number of cells, and optionally enable IUCN weights.
-3. Click Locate sites. Green cells are selected; click them for species and coordinates.
-4. Download the selected site coordinates as CSV.
+The dashboard includes an interactive map, species lists with IUCN labels, site explanations, sensitivity analysis, and CSV downloads.
 
-The Dashboard shows data counts. Optimize combines site selection, the map, coverage and unrepresented species. Sensitivity compares record thresholds and equal/IUCN weighting using live results.
+## Data and results
 
-Sensitivity also compares a richest-uncovered-species greedy rule with exact Set Covering on the same equal-cost dataset. It reports cells selected, species represented and measured runtime, and lists cells made compulsory by species recorded in only one candidate cell. These explanations concern recorded full representation; they do not establish biological endemism or mandatory choices for every MCLP budget. Runtime values are single computations cached until solver restart, not averaged performance claims.
+The cleaned dataset contains:
 
-## Manual setup
+- 9,226 occurrence records
+- 220 amphibian species
+- 759 occupied grid cells
+
+Cells measure 0.1° in latitude and longitude—approximately 11 km north to south.
+
+The current Set Covering solution requires **56 cells** to represent all 220 species.
+
+| Cell budget | Species represented | Coverage |
+| --- | --- | --- |
+| 10 | 144 | 65.5% |
+| 20 | 177 | 80.5% |
+| 40 | 204 | 92.7% |
+| 56 | 220 | 100% |
+
+At a budget of 20 cells, IUCN weighting represents 170 species instead of 177, but achieves a higher threat-weighted score: 401 compared with 386 for the equal-weight solution.
+
+Earlier results reported 57 cells for full coverage. Fixing the assignment of records at grid boundaries reduced the optimum to 56. See [DATA_NOTES.md](DATA_NOTES.md) for the details.
+
+## Running locally
+
+Requirements:
+
+- Python 3.12+
+- Node.js 20.9+
+- npm or pnpm
+
+On Windows, double-click `run_project.bat`. The launcher installs missing dependencies and starts both services. The first run needs an internet connection.
+
+Open http://127.0.0.1:3000/optimize when startup finishes.
+
+To start the services manually, run this from the repository root:
 
 ```powershell
 python -m venv .venv
@@ -27,7 +56,7 @@ python -m venv .venv
 .venv\Scripts\python solver/server.py
 ```
 
-In a second terminal:
+In another terminal:
 
 ```powershell
 cd web
@@ -35,53 +64,72 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-`npm install` and `npm run dev` also work if pnpm is unavailable. The optional `web/.env.local` setting is `SOLVER_URL=http://127.0.0.1:8000`.
+The frontend connects to the solver at `http://127.0.0.1:8000`. To use a different backend address, set `SOLVER_URL` in `web/.env.local`.
 
-## Models
+No database is required.
 
-Let x_i select a cell, a_ij indicate an occurrence of species j in cell i, and y_j indicate representation.
+## Using BioCover
 
-- **SCLP:** minimize sum(x_i), subject to sum(a_ij x_i) >= 1 for every species.
-- **MCLP:** maximize sum(w_j y_j), subject to y_j <= sum(a_ij x_i) and sum(x_i) <= K.
-- Variables are binary. PuLP 3.3.0 uses the bundled CBC solver. Non-optimal solves are rejected instead of displayed as valid results. MCLP optimizes the coverage score first and applies a rank preference among optimal scores.
-- Supplied weights: CR=5, EN=4, VU=3, NT=2, LC/DD/unknown=1; the supplied snapshot also has EX=6. These are a simple project scoring choice, not monetary values.
+Open **Optimize**, choose a model, and click **Locate sites**. For MCLP, choose a cell budget and optionally enable IUCN weighting.
 
-The corrected data has **759 cells, 220 species and 9,226 records**. Its full-coverage optimum is **56 cells**. The original 57 changed after correcting 41 cell-boundary assignments. See [DATA_NOTES.md](DATA_NOTES.md) for the exact reason and assumptions.
+Selected cells appear in orange. Click a selected cell and choose **Why this site?** to see:
 
-## Rebuild and check
+- The species represented by that cell
+- Their saved IUCN categories
+- Threatened species present
+- Species represented only by that cell within the selected network
+- The loss in coverage if the cell were removed while the other selections stayed fixed
 
-The supplied checkout includes the raw `occurrence.txt`. The generated CSVs are tracked so the app works without downloading data again.
+The Dashboard provides a dataset overview and an IUCN label index. Sensitivity compares record thresholds, equal and IUCN weighting, and greedy selection against exact Set Covering.
+
+## Built with
+
+- **Frontend:** Next.js, React, Leaflet and Recharts
+- **Backend:** FastAPI
+- **Optimization:** PuLP and CBC
+- **Data processing:** pandas
+
+## Deployment
+
+The frontend can run on Vercel, with the Python solver hosted on Render or Railway.
+
+For the backend, use the repository root and the included `Dockerfile`. The solver needs the CSV files stored alongside the `solver/` directory. Use `/health` as the healthcheck endpoint.
+
+For Vercel:
+
+- Set the root directory to `web`.
+- Choose the Next.js framework.
+- Set `SOLVER_URL` to the backend’s HTTPS base address.
+- Set `ENABLE_EXPERIMENTAL_COREPACK=1` to use the pinned pnpm version.
+
+The Dockerfile uses the hosting platform’s `PORT` environment variable.
+
+## Checks
+
+From the repository root:
 
 ```powershell
-.venv\Scripts\python clean_and_grid.py
-.venv\Scripts\python generate_results_summary.py
 .venv\Scripts\python -m pytest solver -v
-cd web
+```
+
+From `web/`:
+
+```powershell
 pnpm lint
 pnpm typecheck
 pnpm build
 ```
 
-`solver/fetch_iucn_weights.py` optionally refreshes weights; a failed lookup is NE. Restart the solver after changing data or weights. Its in-memory cache is tied to the loaded snapshot, and all responses include the dataset fingerprint.
+Restart the solver after changing the data or weights so it reloads the files and clears its cached results.
 
-The project locates recorded-species representation sites. It does not claim to establish current occupancy or real-world conservation outcomes. Keep the historical-data assumptions in the presentation.
+## Assumptions and limitations
 
-## 📊 Results Summary
+This project measures representation of recorded occurrences. It does not establish current occupancy, habitat quality, land availability or the actual conservation benefit of protecting a site.
 
-1. **Minimum Reserve Network (Set Covering)**:
-   - Exactly **56 grid cells** are required to achieve 100% representation (covering all 220 amphibian species at least once).
+K counts equally priced cells, rather than money. IUCN weights are project scoring choices, not official numerical scores.
 
-2. **Coverage vs. Budget Curve (MCLP)**:
-   - Budget = 1 cell $\rightarrow$ 19.1% species coverage (42 species)
-   - Budget = 10 cells $\rightarrow$ 65.5% species coverage (144 species)
-   - Budget = 20 cells $\rightarrow$ 80.5% species coverage (177 species)
-   - Budget = 40 cells $\rightarrow$ 92.7% species coverage (204 species)
-   - Budget = 55 cells $\rightarrow$ 99.5% species coverage (219 species)
-   - Budget = 56 cells $\rightarrow$ 100.0% species coverage (220 species)
+Some records and IUCN labels are historical, including two species labelled Extinct in the supplied snapshot. The geographic filter is a bounding box rather than a precise Western Ghats boundary.
 
-3. **Equal-Weighted vs. IUCN-Weighted Tradeoff**:
-   - At a budget of 20 reserves, incorporating IUCN Red List weights ($w_j$) changes **6 out of 20 selected cells (30.0% network spatial shift)**.
-   - **Equal-weighted model**: achieves 80.5% coverage (177 species).
-   - **IUCN-weighted model**: achieves 77.3% coverage (170 species).
-   - IUCN-weighted score: 401; equal solution evaluated with the same weights: 386.
-   - Rank-based preferences can still tie; exact selected cells may differ between solver builds.
+“Unique within the selected network” does not mean a species occurs nowhere else.
+
+BioCover is a subject project demonstrating how Operations Research can support conservation site selection. The data assumptions are documented in [DATA_NOTES.md](DATA_NOTES.md).
